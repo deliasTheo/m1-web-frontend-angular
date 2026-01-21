@@ -1,0 +1,86 @@
+<div class="modal-overlay" (click)="cancel()">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>Ajouter un nouveau preset</h2>
+      <button class="close-button" (click)="cancel()" title="Fermer">✕</button>
+    </div>
+
+    <div class="modal-body">
+      <div class="form-group">
+        <label for="preset-nom">Nom du preset *</label>
+        <input
+          type="text"
+          id="preset-nom"
+          [(ngModel)]="nom"
+          placeholder="Ex: Hip-Hop Kit"
+          required
+        />
+      </div>
+
+      <div class="form-group">
+        <label for="preset-type">Type *</label>
+        <input
+          type="text"
+          id="preset-type"
+          [(ngModel)]="type"
+          placeholder="Ex: Drumkit, Electronic, etc."
+          required
+        />
+      </div>
+
+      <div class="sons-section">
+        <div class="sons-header">
+          <h3>Sons (optionnel)</h3>
+          <button type="button" class="add-son-button" (click)="addSon()">
+            + Ajouter un son
+          </button>
+        </div>
+
+        @if (sons.length > 0) {
+          <div class="sons-list">
+            @for (son of sons; track $index; let sonIndex = $index) {
+              <div class="son-form-item">
+                <div class="son-inputs">
+                  <input
+                    type="text"
+                    [(ngModel)]="son.nom"
+                    placeholder="Nom du son"
+                    class="son-nom-input"
+                  />
+                  <input
+                    type="text"
+                    [(ngModel)]="son.url"
+                    placeholder="URL du son"
+                    class="son-url-input"
+                  />
+                </div>
+                <button
+                  type="button"
+                  class="remove-son-button"
+                  (click)="removeSon(sonIndex)"
+                  title="Supprimer ce son"
+                >
+                  ✕
+                </button>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="no-sons-message">Aucun son ajouté. Vous pourrez en ajouter plus tard.</p>
+        }
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="cancel-button" (click)="cancel()">Annuler</button>
+      <button
+        type="button"
+        class="save-button"
+        (click)="save()"
+        [disabled]="nom.trim() === '' || type.trim() === ''"
+      >
+        Enregistrer
+      </button>
+    </div>
+  </div>
+</div>

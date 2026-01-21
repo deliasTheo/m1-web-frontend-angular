@@ -1,0 +1,185 @@
+<div class="home-page-container">
+  <h1>Liste des Presets</h1>
+
+  <div class="presets-list">
+    @if (presets.length === 0) {
+      <p class="empty-message">Aucun preset disponible pour le moment.</p>
+    } @else {
+      @for (preset of presets; track $index; let presetIndex = $index) {
+        <div class="preset-item">
+          <div class="preset-header">
+            <button
+              class="chevron-button"
+              (click)="togglePreset(presetIndex)"
+              [attr.aria-expanded]="isExpanded(presetIndex)"
+              aria-label="Dérouler/Réduire le preset"
+            >
+              <span class="chevron" [class.expanded]="isExpanded(presetIndex)">▶</span>
+            </button>
+
+            @if (editingPreset === presetIndex) {
+              <div class="edit-container">
+                <input
+                  type="text"
+                  [(ngModel)]="tempPresetName"
+                  class="edit-input"
+                  (keyup.enter)="validatePresetName()"
+                  (keyup.escape)="cancelEditingPreset()"
+                  #presetInput
+                />
+                <button class="validate-button" (click)="validatePresetName()" title="Valider">
+                  ✓
+                </button>
+                <button class="cancel-button" (click)="cancelEditingPreset()" title="Annuler">
+                  ✕
+                </button>
+              </div>
+            } @else {
+              <span class="preset-name">{{ preset.nom }}</span>
+              <div class="preset-actions">
+                <button
+                  class="edit-icon-button"
+                  (click)="startEditingPresetName(presetIndex)"
+                  title="Modifier le nom du preset"
+                >
+                  ✏️
+                </button>
+                <button
+                  class="delete-icon-button"
+                  (click)="confirmDeletePreset(presetIndex)"
+                  title="Supprimer le preset"
+                >
+                  🗑️
+                </button>
+              </div>
+            }
+          </div>
+
+          @if (isExpanded(presetIndex)) {
+            <div class="preset-details">
+              <div class="preset-type">
+                <strong>Type:</strong> {{ preset.type }}
+              </div>
+              <div class="sons-list">
+                <div class="sons-header">
+                  <h3>Sons:</h3>
+                  <button
+                    class="add-son-button-small"
+                    (click)="openAddSonForm(presetIndex)"
+                    title="Ajouter un son"
+                  >
+                    + Ajouter un son
+                  </button>
+                </div>
+
+                @if (showAddSonForm === presetIndex) {
+                  <div class="add-son-form">
+                    <input
+                      type="text"
+                      [(ngModel)]="newSon.nom"
+                      placeholder="Nom du son"
+                      class="son-input"
+                    />
+                    <input
+                      type="text"
+                      [(ngModel)]="newSon.url"
+                      placeholder="URL du son"
+                      class="son-input"
+                    />
+                    <button class="save-son-button" (click)="saveSon(presetIndex)" title="Enregistrer">
+                      ✓
+                    </button>
+                    <button class="cancel-son-button" (click)="cancelAddSon()" title="Annuler">
+                      ✕
+                    </button>
+                  </div>
+                }
+
+                @if (preset.sons.length === 0 && showAddSonForm !== presetIndex) {
+                  <p class="empty-sons">Aucun son dans ce preset.</p>
+                } @else {
+                  @for (son of preset.sons; track $index; let sonIndex = $index) {
+                    <div class="son-item">
+                      @if (editingSon?.presetIndex === presetIndex && editingSon?.sonIndex === sonIndex) {
+                        <div class="edit-container">
+                          <input
+                            type="text"
+                            [(ngModel)]="tempSonName"
+                            class="edit-input"
+                            (keyup.enter)="validateSonName()"
+                            (keyup.escape)="cancelEditingSon()"
+                            #sonInput
+                          />
+                          <button class="validate-button" (click)="validateSonName()" title="Valider">
+                            ✓
+                          </button>
+                          <button class="cancel-button" (click)="cancelEditingSon()" title="Annuler">
+                            ✕
+                          </button>
+                        </div>
+                      } @else {
+                        <span class="son-name">{{ son.nom }}</span>
+                        <div class="son-actions">
+                          <button
+                            class="edit-icon-button"
+                            (click)="startEditingSonName(presetIndex, sonIndex)"
+                            title="Modifier le nom du son"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            class="delete-icon-button"
+                            (click)="confirmDeleteSon(presetIndex, sonIndex)"
+                            title="Supprimer le son"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      }
+                    </div>
+                  }
+                }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    }
+  </div>
+
+  <button class="add-button" (click)="openAddPresetModal()" title="Ajouter un preset">
+    + Ajouter un preset
+  </button>
+</div>
+
+@if (showAddPresetModal) {
+  <app-add-preset-modal (close)="closeAddPresetModal()" />
+}
+
+@if (showDeletePresetConfirmation !== null) {
+  <div class="confirmation-overlay" (click)="cancelDeletePreset()">
+    <div class="confirmation-box" (click)="$event.stopPropagation()">
+      <h3>Confirmer la suppression</h3>
+      <p>Êtes-vous sûr de vouloir supprimer ce preset ?</p>
+      <p class="warning">Cette action est irréversible.</p>
+      <div class="confirmation-buttons">
+        <button class="cancel-confirm-button" (click)="cancelDeletePreset()">Annuler</button>
+        <button class="confirm-delete-button" (click)="deletePreset(showDeletePresetConfirmation)">Supprimer</button>
+      </div>
+    </div>
+  </div>
+}
+
+@if (showDeleteSonConfirmation !== null) {
+  <div class="confirmation-overlay" (click)="cancelDeleteSon()">
+    <div class="confirmation-box" (click)="$event.stopPropagation()">
+      <h3>Confirmer la suppression</h3>
+      <p>Êtes-vous sûr de vouloir supprimer ce son ?</p>
+      <p class="warning">Cette action est irréversible.</p>
+      <div class="confirmation-buttons">
+        <button class="cancel-confirm-button" (click)="cancelDeleteSon()">Annuler</button>
+        <button class="confirm-delete-button" (click)="deleteSon(showDeleteSonConfirmation.presetIndex, showDeleteSonConfirmation.sonIndex)">Supprimer</button>
+      </div>
+    </div>
+  </div>
+}
