@@ -1,151 +1,148 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { HttpClient } from '@angular/common/http';
+import { BehaviorSubject, Observable, catchError, of, tap } from 'rxjs';
 import { Preset } from '../models/preset.model';
 import { Son } from '../models/son.model';
+import { API_URL } from '../config/api.config';
+
+/** Réponse API preset (backend) */
+interface PresetApi {
+  name: string;
+  type: string;
+  isFactoryPresets?: boolean;
+  samples: { name: string; url: string }[];
+}
 
 @Injectable({
   providedIn: 'root'
 })
 export class PresetService {
-  private presetsSubject = new BehaviorSubject<Preset[]>([
-    {
-      nom: 'Preset 1',
-      type: 'Drumkit',
-      sons: [
-        {
-          nom: 'Son 1',
-          url: 'https://www.example.com/son1.wav'
-        },
-        {
-          nom: 'Son 2',
-          url: 'https://www.example.com/son2.wav'
-        },
-        {
-          nom: 'Son 3',
-          url: 'https://www.example.com/son3.wav'
-        }
-      ]
-    },
-    {
-      nom: 'Preset 2',
-      type: 'Drumkit',
-      sons: [
-        {
-          nom: 'Son 1',
-          url: 'https://www.example.com/son1.wav'
-        },
-        {
-          nom: 'Son 2',
-          url: 'https://www.example.com/son2.wav'
-        },
-        {
-          nom: 'Son 3',
-          url: 'https://www.example.com/son3.wav'
-        }
-      ]
-    },
-    {
-      nom: 'Preset 3',
-      type: 'Drumkit',
-      sons: [
-        {
-          nom: 'Son 1',
-          url: 'https://www.example.com/son1.wav'
-        },
-        {
-          nom: 'Son 2',
-          url: 'https://www.example.com/son2.wav'
-        }
-      ]
-    }
-  ]);
-
+  private presetsSubject = new BehaviorSubject<Preset[]>([]);
   public readonly presets$: Observable<Preset[]> = this.presetsSubject.asObservable();
 
-  constructor() {
-    // Liste initialisée avec des exemples
-    // Sera remplacée par des appels backend plus tard
+  constructor(private http: HttpClient) {
+    this.loadPresets();
+  }
+
+  private mapApiToPreset(api: PresetApi): Preset {
+    return {
+      nom: api.name,
+      type: api.type,
+      sons: (api.samples || []).map(s => ({ nom: s.name, url: s.url }))
+    };
   }
 
   /**
-   * Récupère tous les presets (Observable)
-   * @returns Observable de la liste des presets
+   * Charge la liste des presets depuis le backend.
    */
+  loadPresets(): void {
+    this.http
+      .get<PresetApi[]>(`${API_URL}/api/presets`)
+      .pipe(
+        tap(presets => this.presetsSubject.next(presets.map(p => this.mapApiToPreset(p)))),
+        catchError(err => {
+          console.error('Erreur chargement presets:', err);
+          return of([]);
+        })
+      )
+      .subscribe();
+  }
+
   getPresets(): Observable<Preset[]> {
     return this.presets$;
   }
 
-  /**
-   * Récupère la valeur actuelle des presets (synchrone)
-   * @returns Liste actuelle des presets
-   */
   getPresetsValue(): Preset[] {
     return this.presetsSubject.value;
   }
 
   /**
-   * Met à jour le nom d'un preset
-   * @param presetIndex Index du preset à modifier
-   * @param nouveauNom Nouveau nom du preset
+   * Met à jour le nom d'un preset (appel backend puis rechargement).
    */
   updatePresetName(presetIndex: number, nouveauNom: string): void {
-    const presets = [...this.presetsSubject.value];
-    if (presetIndex >= 0 && presetIndex < presets.length) {
-      presets[presetIndex] = { ...presets[presetIndex], nom: nouveauNom };
-      this.presetsSubject.next(presets);
-      // TODO: Appel backend pour mettre à jour le preset
-    }
+    const presets = this.presetsSubject.value;
+    if (presetIndex < 0 || presetIndex >= presets.length) return;
+    const presetName = presets[presetIndex].nom;
+
+    this.http
+      .put(`${API_URL}/api/preset/${encodeURIComponent(presetName)}/modifyName`, {
+        newName: nouveauNom
+      })
+      .pipe(
+        tap(() => this.loadPresets()),
+        catchError(err => {
+          console.error('Erreur modification nom preset:', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 
   /**
-   * Met à jour le nom d'un son
-   * @param presetIndex Index du preset contenant le son
-   * @param sonIndex Index du son à modifier
-   * @param nouveauNom Nouveau nom du son
+   * Met à jour le nom d'un son (appel backend puis rechargement).
    */
   updateSonName(presetIndex: number, sonIndex: number, nouveauNom: string): void {
-    const presets = [...this.presetsSubject.value];
+    const presets = this.presetsSubject.value;
     if (
-      presetIndex >= 0 && 
-      presetIndex < presets.length &&
-      sonIndex >= 0 &&
-      sonIndex < presets[presetIndex].sons.length
-    ) {
-      const updatedSons = [...presets[presetIndex].sons];
-      updatedSons[sonIndex] = { ...updatedSons[sonIndex], nom: nouveauNom };
-      presets[presetIndex] = { ...presets[presetIndex], sons: updatedSons };
-      this.presetsSubject.next(presets);
-      // TODO: Appel backend pour mettre à jour le son
-    }
+      presetIndex < 0 ||
+      presetIndex >= presets.length ||
+      sonIndex < 0 ||
+      sonIndex >= presets[presetIndex].sons.length
+    )
+      return;
+    const presetName = presets[presetIndex].nom;
+    const soundName = presets[presetIndex].sons[sonIndex].nom;
+
+    this.http
+      .put(`${API_URL}/api/sound/${encodeURIComponent(soundName)}/modifyName`, {
+        newName: nouveauNom,
+        presetName
+      })
+      .pipe(
+        tap(() => this.loadPresets()),
+        catchError(err => {
+          console.error('Erreur modification nom son:', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 
   /**
-   * Ajoute un nouveau preset
-   * @param preset Preset à ajouter
+   * Ajoute un nouveau preset (appel backend puis rechargement).
+   * Les sons du preset ne sont pas envoyés pour l’instant (add sound à venir).
    */
   addPreset(preset: Preset): void {
-    const presets = [...this.presetsSubject.value, preset];
-    this.presetsSubject.next(presets);
-    // TODO: Appel backend pour créer le preset
+    this.http
+      .post(`${API_URL}/api/preset/addPreset`, {
+        name: preset.nom,
+        type: preset.type,
+        isFactoryPreset: false
+      })
+      .pipe(
+        tap(() => this.loadPresets()),
+        catchError(err => {
+          console.error('Erreur ajout preset:', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 
   /**
-   * Supprime un preset
-   * @param presetIndex Index du preset à supprimer
+   * Supprime un preset (local uniquement pour l’instant, pas d’endpoint backend).
    */
   deletePreset(presetIndex: number): void {
     const presets = [...this.presetsSubject.value];
     if (presetIndex >= 0 && presetIndex < presets.length) {
       presets.splice(presetIndex, 1);
       this.presetsSubject.next(presets);
-      // TODO: Appel backend pour supprimer le preset
+      // TODO: Appel backend quand l’endpoint sera disponible
     }
   }
 
   /**
-   * Ajoute un son à un preset existant
-   * @param presetIndex Index du preset
-   * @param son Son à ajouter
+   * Ajoute un son à un preset existant (local uniquement pour l’instant, add sound à venir).
    */
   addSonToPreset(presetIndex: number, son: Son): void {
     const presets = [...this.presetsSubject.value];
@@ -153,19 +150,17 @@ export class PresetService {
       const updatedSons = [...presets[presetIndex].sons, son];
       presets[presetIndex] = { ...presets[presetIndex], sons: updatedSons };
       this.presetsSubject.next(presets);
-      // TODO: Appel backend pour ajouter le son au preset
+      // TODO: Appel backend quand l’endpoint add sound sera disponible
     }
   }
 
   /**
-   * Supprime un son d'un preset
-   * @param presetIndex Index du preset
-   * @param sonIndex Index du son à supprimer
+   * Supprime un son d'un preset (local uniquement pour l’instant, pas d’endpoint backend).
    */
   deleteSonFromPreset(presetIndex: number, sonIndex: number): void {
     const presets = [...this.presetsSubject.value];
     if (
-      presetIndex >= 0 && 
+      presetIndex >= 0 &&
       presetIndex < presets.length &&
       sonIndex >= 0 &&
       sonIndex < presets[presetIndex].sons.length
@@ -174,7 +169,7 @@ export class PresetService {
       updatedSons.splice(sonIndex, 1);
       presets[presetIndex] = { ...presets[presetIndex], sons: updatedSons };
       this.presetsSubject.next(presets);
-      // TODO: Appel backend pour supprimer le son
+      // TODO: Appel backend quand l’endpoint sera disponible
     }
   }
 }

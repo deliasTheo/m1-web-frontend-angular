@@ -6,6 +6,8 @@ import { PresetService } from '../../services/preset.service';
 import { Preset } from '../../models/preset.model';
 import { Son } from '../../models/son.model';
 import { AddPresetModal } from '../add-preset-modal/add-preset-modal';
+import { ChangeDetectorRef } from '@angular/core';
+
 
 @Component({
   selector: 'app-home-page',
@@ -13,7 +15,7 @@ import { AddPresetModal } from '../add-preset-modal/add-preset-modal';
   templateUrl: './home-page.html',
   styleUrl: './home-page.css',
 })
-export class HomePage implements OnInit, OnDestroy {
+export class HomePage implements OnInit {
   presets: Preset[] = [];
   expandedPresets: Set<number> = new Set();
   editingPreset: number | null = null;
@@ -26,18 +28,17 @@ export class HomePage implements OnInit, OnDestroy {
   showAddSonForm: number | null = null;
   newSon: { nom: string; url: string } = { nom: '', url: '' };
 
-  private subscription?: Subscription;
 
-  constructor(private presetService: PresetService) {}
-
-  ngOnInit(): void {
-    this.subscription = this.presetService.getPresets().subscribe(presets => {
-      this.presets = presets;
-    });
+  constructor(private presetService: PresetService, private cdr: ChangeDetectorRef) {
+    
   }
 
-  ngOnDestroy(): void {
-    this.subscription?.unsubscribe();
+  ngOnInit(): void {
+    this.presetService.loadPresets();
+    this.presetService.getPresets().subscribe(presets => {
+      this.presets = presets;
+      this.cdr.detectChanges();
+    });
   }
 
   togglePreset(index: number): void {

@@ -2,6 +2,10 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 21.0.5.
 
+## Backend API
+
+L’appel au backend se fait via l’URL définie dans `src/app/config/api.config.ts` (par défaut : backend déployé sur Render). Pour pointer vers un backend local, modifier `API_URL` (ex. `http://localhost:3000`).
+
 ## Development server
 
 To start a local development server, run:
