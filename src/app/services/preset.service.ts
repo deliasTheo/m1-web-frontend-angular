@@ -110,7 +110,7 @@ export class PresetService {
 
   /**
    * Ajoute un nouveau preset (appel backend puis rechargement).
-   * Les sons du preset ne sont pas envoyés pour l’instant (add sound à venir).
+   * Les sons du preset ne sont pas envoyés pour l'instant (add sound à venir).
    */
   addPreset(preset: Preset): void {
     this.http
@@ -130,19 +130,27 @@ export class PresetService {
   }
 
   /**
-   * Supprime un preset (local uniquement pour l’instant, pas d’endpoint backend).
+   * Supprime un preset (appel backend puis rechargement).
    */
   deletePreset(presetIndex: number): void {
-    const presets = [...this.presetsSubject.value];
-    if (presetIndex >= 0 && presetIndex < presets.length) {
-      presets.splice(presetIndex, 1);
-      this.presetsSubject.next(presets);
-      // TODO: Appel backend quand l’endpoint sera disponible
-    }
+    const presets = this.presetsSubject.value;
+    if (presetIndex < 0 || presetIndex >= presets.length) return;
+    const presetName = presets[presetIndex].nom;
+
+    this.http
+      .delete(`${API_URL}/api/preset/${encodeURIComponent(presetName)}`)
+      .pipe(
+        tap(() => this.loadPresets()),
+        catchError(err => {
+          console.error('Erreur suppression preset:', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 
   /**
-   * Ajoute un son à un preset existant (local uniquement pour l’instant, add sound à venir).
+   * Ajoute un son à un preset existant (local uniquement pour l'instant, add sound à venir).
    */
   addSonToPreset(presetIndex: number, son: Son): void {
     const presets = [...this.presetsSubject.value];
@@ -150,26 +158,36 @@ export class PresetService {
       const updatedSons = [...presets[presetIndex].sons, son];
       presets[presetIndex] = { ...presets[presetIndex], sons: updatedSons };
       this.presetsSubject.next(presets);
-      // TODO: Appel backend quand l’endpoint add sound sera disponible
+      // TODO: Appel backend quand l'endpoint add sound sera disponible
     }
   }
 
   /**
-   * Supprime un son d'un preset (local uniquement pour l’instant, pas d’endpoint backend).
+   * Supprime un son d'un preset (appel backend puis rechargement).
    */
   deleteSonFromPreset(presetIndex: number, sonIndex: number): void {
-    const presets = [...this.presetsSubject.value];
+    const presets = this.presetsSubject.value;
     if (
-      presetIndex >= 0 &&
-      presetIndex < presets.length &&
-      sonIndex >= 0 &&
-      sonIndex < presets[presetIndex].sons.length
-    ) {
-      const updatedSons = [...presets[presetIndex].sons];
-      updatedSons.splice(sonIndex, 1);
-      presets[presetIndex] = { ...presets[presetIndex], sons: updatedSons };
-      this.presetsSubject.next(presets);
-      // TODO: Appel backend quand l’endpoint sera disponible
-    }
+      presetIndex < 0 ||
+      presetIndex >= presets.length ||
+      sonIndex < 0 ||
+      sonIndex >= presets[presetIndex].sons.length
+    )
+      return;
+    const presetName = presets[presetIndex].nom;
+    const soundName = presets[presetIndex].sons[sonIndex].nom;
+
+    this.http
+      .delete(`${API_URL}/api/sound/${encodeURIComponent(soundName)}`, {
+        body: { presetName }
+      })
+      .pipe(
+        tap(() => this.loadPresets()),
+        catchError(err => {
+          console.error('Erreur suppression son:', err);
+          return of(null);
+        })
+      )
+      .subscribe();
   }
 }
